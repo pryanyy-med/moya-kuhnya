@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f8f0e5">
+  <meta name="description" content="Моя кухня: рецепты, меню недели, КБЖУ и список покупок — без подписок.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Моя кухня — книга рецептов</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><div class="brand-icon" aria-hidden="true">✿</div><div><span class="eyebrow">ДОМАШНЯЯ КНИГА РЕЦЕПТОВ</span><h1>Моя кухня</h1></div></div>
+      <button class="icon-button" id="openSettings" type="button" aria-label="Настройки и резервные копии" title="Настройки">⚙</button>
+    </header>
+    <main id="main" class="main-content" aria-live="polite"></main>
+    <nav class="bottom-nav" aria-label="Разделы приложения">
+      <button type="button" data-tab="recipes"><span class="nav-icon">▦</span><span>Рецепты</span></button>
+      <button type="button" data-tab="week"><span class="nav-icon">▤</span><span>Неделя</span></button>
+      <button type="button" data-tab="shopping"><span class="nav-icon">♧</span><span>Покупки</span></button>
+      <button type="button" data-tab="stats"><span class="nav-icon">◔</span><span>КБЖУ</span></button>
+    </nav>
+  </div>
+  <div id="modalRoot"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js" defer></script>
+</body>
+</html>
