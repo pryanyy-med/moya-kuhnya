@@ -90,8 +90,114 @@ const groupOf = name => {const s=name.toLowerCase();if(/куриц|индей|ф
 function shoppingData(){const sums=new Map();for(let i=0;i<7;i++){for(const m of meals(dayKey(i))){const r=recipe(m.recipeId);if(!r)continue;const factor=number(m.servings)/number(r.yield);for(const ing of r.ingredients||[]){const name=ing.name.trim(),unit=ing.unit.trim();const key=name.toLocaleLowerCase('ru')+'|'+unit.toLowerCase();if(!sums.has(key))sums.set(key,{name,unit,qty:0,group:groupOf(name),key});sums.get(key).qty+=number(ing.qty)*factor;}}}return [...sums.values()].sort((a,b)=>a.group.localeCompare(b.group,'ru')||a.name.localeCompare(b.name,'ru'));}
 function renderShopping(main){const list=shoppingData(),key=weekKey();state.checks[key]??={};const checked=state.checks[key];const done=list.filter(x=>checked[x.key]).length;const grouped={};for(const item of list){(grouped[item.group]??=[]).push(item);}main.innerHTML=`<div class="section-head"><h2>Список покупок</h2><span class="pill">${done} / ${list.length}</span></div><p class="subtle">Неделя ${dateLabel(monday(weekOffset))} — ${dateLabel(addDays(monday(weekOffset),6))}. Ингредиенты всех блюд суммируются с учётом порций.</p><div class="week-switch"><button class="arw" id="prevWeek" aria-label="Предыдущая неделя">‹</button><span class="subtle">Выбранная неделя</span><button class="arw" id="nextWeek" aria-label="Следующая неделя">›</button></div>${!list.length?`<div class="empty"><span class="emoji">🧺</span>Здесь пока пусто. Добавь блюда в меню недели — продукты появятся автоматически.</div>`:Object.entries(grouped).map(([group,items])=>`<div class="panel shop-group"><h3>${esc(group)}</h3>${items.map(x=>`<label class="shop-item ${checked[x.key]?'checked':''}"><input type="checkbox" data-shop="${esc(x.key)}" ${checked[x.key]?'checked':''}><span class="shop-label">${esc(x.name)}</span><span class="shop-qty">${fmt(x.qty)} ${esc(x.unit)}</span></label>`).join('')}</div>`).join('')}<div class="modal-actions"><button class="btn secondary" id="copyShopping" ${!list.length?'disabled':''}>Скопировать список</button><button class="btn ghost" id="clearChecks" ${!done?'disabled':''}>Сбросить галочки</button></div><p class="footer-note">Единицы суммируются только если совпадают. Например, «Молоко» и «Молоко 2,5%» считаются разными продуктами. Для точного списка используй одинаковые названия и единицы.</p>`;$('#prevWeek').onclick=()=>{weekOffset--;render();};$('#nextWeek').onclick=()=>{weekOffset++;render();};$$('[data-shop]').forEach(e=>e.onchange=()=>{checked[e.dataset.shop]=e.checked;save();render();});$('#copyShopping').onclick=async()=>{const value=list.map(x=>`${checked[x.key]?'☑':'☐'} ${x.name} — ${fmt(x.qty)} ${x.unit}`).join('\n');try{await navigator.clipboard.writeText(value);toast('Список скопирован');}catch{showModal('Список покупок',`<textarea class="search" style="min-height:250px">${esc(value)}</textarea>`);}};$('#clearChecks').onclick=()=>{state.checks[key]={};save();render();};}
 function renderStats(main){const start=monday(weekOffset),d=dayKey(selectedStatsDay),t=totals(d);const totalWeek=Array.from({length:7},(_,i)=>totals(dayKey(i)));const ave=totalWeek.reduce((a,x)=>{for(const k of Object.keys(a))a[k]+=x[k]/7;return a;},{kcal:0,protein:0,fat:0,carbs:0});main.innerHTML=`<div class="section-head"><h2>Твой баланс</h2><span class="pill">цель ~1700 ккал</span></div><div class="notice">КБЖУ рассчитаны по примерным значениям рецептов. Это планировщик питания, не медицинская оценка рациона.</div><div class="chip-row">${DAYS.map((s,i)=>`<button class="chip ${i===selectedStatsDay?'active':''}" data-statday="${i}">${s.slice(0,2)}</button>`).join('')}</div><div class="panel"><span class="subtle">${DAYS[selectedStatsDay]}, ${dateLabel(addDays(start,selectedStatsDay))}</span><h2 style="margin:9px 0">${Math.round(t.kcal)} <span style="font-size:14px;color:var(--muted);font-family:system-ui">/ 1700 ккал</span></h2><div class="progress ${t.kcal>1700?'over':''}"><span style="width:${Math.min(100,Math.max(0,t.kcal/1700*100))}%"></span></div><div style="height:19px"></div>${[['Белки',t.protein,100,'мин.'],['Жиры',t.fat,60,'макс.'],['Углеводы',t.carbs,null,'']].map(([label,value,goal,rel])=>`<div class="stat-row"><strong>${label}</strong><span>${fmt(value)} г ${goal?' / '+rel+' '+goal+' г':''}</span></div>${goal?`<div class="progress ${label==='Жиры'&&value>goal?'over':''}"><span style="width:${Math.min(100,value/goal*100)}%"></span></div><div style="height:14px"></div>`:''}`).join('')}<p class="help">${t.protein<100?'До ориентира по белку не хватает '+fmt(100-t.protein)+' г.':'Белок: цель достигнута.'} ${t.fat>60?'Жиры выше выбранного предела.':'Жиры в пределах выбранного максимума.'}</p></div><div class="section-head"><h3>Вся неделя</h3></div><div class="panel">${totalWeek.map((x,i)=>`<div class="stat-row"><span>${DAYS[i].slice(0,2)}, ${dateLabel(addDays(start,i))}</span><span>${Math.round(x.kcal)} ккал · Б ${Math.round(x.protein)} · Ж ${Math.round(x.fat)}</span></div>`).join('')}<hr style="border:0;border-top:1px solid var(--line);margin:14px 0"><div class="stat-row"><strong>Среднее за день</strong><strong>${Math.round(ave.kcal)} ккал</strong></div><div class="subtle">Б ${fmt(ave.protein)} · Ж ${fmt(ave.fat)} · У ${fmt(ave.carbs)} г</div></div>`;$$('[data-statday]').forEach(b=>b.onclick=()=>{selectedStatsDay=Number(b.dataset.statday);render();});}
-function settings(){showModal('Настройки и копии',`<div class="panel"><h3>Твои данные — на телефоне</h3><p class="subtle">Рецепты и меню сохраняются локально в IndexedDB браузера. Они не отправляются на сервер. Очистка данных сайта или потеря телефона может удалить их.</p><div class="notice">Рекомендуем регулярно скачивать резервную копию и хранить её вне браузера — например, в папке «Загрузки» и отдельно на другом носителе.</div></div><div class="section-head"><h3>Резервное копирование</h3></div><button class="btn full" id="exportData">↓ Скачать базу (JSON)</button><div style="height:10px"></div><button class="btn secondary full" id="importData">↑ Восстановить из JSON</button><input id="importFile" type="file" accept="application/json,.json" hidden><p class="help">Импорт полностью заменит текущие рецепты, меню и галочки покупок. Сначала сделай экспорт.</p><div class="section-head"><h3>Приложение</h3></div><p class="subtle">Версия 1.0 · Без аккаунтов и подписок · КБЖУ стартовых рецептов приблизительные.</p><button class="btn ghost full" id="resetData">Вернуть демонстрационную базу</button>`);$('#exportData').onclick=exportData;$('#importData').onclick=()=>$('#importFile').click();$('#importFile').onchange=importData;$('#resetData').onclick=()=>{if(!confirm('Удалить ВСЕ собственные рецепты, меню и покупки и вернуть демонстрационные данные?'))return;state=defaultState();save();closeModal();showView('recipes');toast('Демо-база восстановлена');};}
+function settings(){showModal('Настройки и копии',`<div class="panel"><h3>Твои данные — на телефоне</h3><p class="subtle">Рецепты и меню сохраняются локально в IndexedDB браузера. Они не отправляются на сервер. Очистка данных сайта или потеря телефона может удалить их.</p><div class="notice">Рекомендуем регулярно скачивать резервную копию и хранить её вне браузера — например, в папке «Загрузки» и отдельно на другом носителе.</div></div><div class="section-head"><h3>Резервное копирование</h3></div><button class="btn full" id="exportData">↓ Скачать базу (JSON)</button><div style="height:10px"></div><button class="btn secondary full" id="importData">↑ Восстановить из JSON</button><input id="importFile" type="file" accept="application/json,.json" hidden><p class="help">Импорт полностью заменит текущие рецепты, меню и галочки покупок. Сначала сделай экспорт.</p><div class="section-head"><h3>Обновление приложения</h3></div><p id="updateStatus" class="subtle" role="status">Текущая версия: 1.0.2</p><button type="button" class="btn secondary full" id="checkForUpdate">↻ Проверить обновления</button><div style="height:10px"></div><button type="button" class="btn full" id="installUpdate" hidden>Установить новую версию</button><p class="help">Обновление не удаляет рецепты. Перед крупными обновлениями скачай JSON-копию. Во время редактирования рецепт лучше сначала сохранить.</p><div class="section-head"><h3>Приложение</h3></div><p class="subtle">Версия 1.0.2 · Без аккаунтов и подписок · КБЖУ стартовых рецептов приблизительные.</p><button class="btn ghost full" id="resetData">Вернуть демонстрационную базу</button>`);$('#checkForUpdate').onclick=checkForUpdates;$('#installUpdate').onclick=activateUpdate;refreshUpdateUI();$('#exportData').onclick=exportData;$('#importData').onclick=()=>$('#importFile').click();$('#importFile').onchange=importData;$('#resetData').onclick=()=>{if(!confirm('Удалить ВСЕ собственные рецепты, меню и покупки и вернуть демонстрационные данные?'))return;state=defaultState();save();closeModal();showView('recipes');toast('Демо-база восстановлена');};}
 function exportData(){const body=JSON.stringify({app:'moya-kuhnya',exportedAt:new Date().toISOString(),...state},null,2);const url=URL.createObjectURL(new Blob([body],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`moya-kuhnya-backup-${iso(new Date())}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);toast('Резервная копия подготовлена');}
 async function importData(e){const file=e.target.files?.[0];if(!file)return;try{if(file.size>10*1024*1024)throw Error('Файл больше 10 МБ');const obj=JSON.parse(await file.text());if(obj.app!=='moya-kuhnya'||obj.schema!==1||!Array.isArray(obj.recipes)||!obj.plans||typeof obj.plans!=='object'||Array.isArray(obj.plans))throw Error('Это не резервная копия «Моей кухни»');if(obj.recipes.length>5000)throw Error('Слишком много рецептов');for(const r of obj.recipes){if(typeof r.id!=='string'||typeof r.name!=='string'||!CATEGORIES.includes(r.category)||!Array.isArray(r.ingredients)||!Number.isFinite(Number(r.yield))||Number(r.yield)<=0||r.ingredients.some(x=>typeof x.name!=='string'||typeof x.unit!=='string'||!Number.isFinite(Number(x.qty))))throw Error('Ошибка структуры рецептов');}for(const [key,list] of Object.entries(obj.plans)){if(!/^\d{4}-\d{2}-\d{2}$/.test(key)||!Array.isArray(list)||list.some(m=>typeof m.recipeId!=='string'||!SLOTS.includes(m.slot)||!Number.isFinite(Number(m.servings))||m.servings<=0))throw Error('Ошибка структуры меню');}if(!confirm('Заменить текущую базу данными из файла? Это действие нельзя отменить.'))return;state={schema:1,recipes:obj.recipes,plans:obj.plans,checks:obj.checks&&typeof obj.checks==='object'&&!Array.isArray(obj.checks)?obj.checks:{}};save();closeModal();render();toast('База восстановлена');}catch(err){alert('Не удалось загрузить копию: '+err.message);}}
-async function init(){try{db=await openDB();state=await loadValue();if(!state||!Array.isArray(state.recipes)||!state.plans){state=defaultState();await storeValue(state);}}catch(err){console.error(err);$('#main').innerHTML=`<div class="empty"><span class="emoji">⚠️</span>Не удалось открыть локальную базу. Проверь, что приложение открыто через HTTPS и в обычном режиме браузера, а не в режиме инкогнито.<p class="subtle">${esc(err.message)}</p></div>`;return;}$$('.bottom-nav button').forEach(b=>b.onclick=()=>showView(b.dataset.tab));$('#openSettings').onclick=settings;render();if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(console.warn);}
+async function init(){try{db=await openDB();state=await loadValue();if(!state||!Array.isArray(state.recipes)||!state.plans){state=defaultState();await storeValue(state);}}catch(err){console.error(err);$('#main').innerHTML=`<div class="empty"><span class="emoji">⚠️</span>Не удалось открыть локальную базу. Проверь, что приложение открыто через HTTPS и в обычном режиме браузера, а не в режиме инкогнито.<p class="subtle">${esc(err.message)}</p></div>`;return;}$$('.bottom-nav button').forEach(b=>b.onclick=()=>showView(b.dataset.tab));$('#openSettings').onclick=settings;render();setupUpdates();}
 init();
+
+// Updates are separate from app data. Do not change IndexedDB schema or reset state.
+const APP_VERSION = '1.0.2';
+let swRegistration = null;
+let swChecking = false;
+let swInstallRequested = false;
+let swHadController = false;
+function refreshUpdateUI(message) {
+  const status = document.querySelector('#updateStatus');
+  const waiting = swRegistration?.waiting;
+  if (status) status.textContent = message || (waiting ? 'Новая версия доступна для установки.' : `Текущая версия: ${APP_VERSION}. Данные рецептов хранятся на устройстве.`);
+  const install = document.querySelector('#installUpdate');
+  if (install) install.hidden = !waiting;
+  const check = document.querySelector('#checkForUpdate');
+  if (check) check.disabled = swChecking;
+  const banner = document.querySelector('#newVersionBanner');
+  if (banner) banner.hidden = !waiting;
+}
+function showUpdateBanner() {
+  if (!document.querySelector('#newVersionBanner')) {
+    const banner = document.createElement('div');
+    banner.id = 'newVersionBanner';
+    banner.className = 'update-banner';
+    banner.innerHTML = '<span>Доступна новая версия «Моей кухни»</span><button type="button" id="bannerUpdate">Обновить</button>';
+    document.querySelector('.topbar')?.insertAdjacentElement('afterend', banner);
+    banner.querySelector('button').addEventListener('click', () => {
+      settings();
+      refreshUpdateUI();
+    });
+  }
+  refreshUpdateUI();
+}
+function watchInstalling(worker) {
+  if (!worker) return;
+  worker.addEventListener('statechange', () => {
+    if (worker.state === 'installed' && navigator.serviceWorker.controller && swRegistration?.waiting) {
+      showUpdateBanner();
+      toast('Есть обновление «Моей кухни»');
+    }
+  });
+}
+async function setupUpdates() {
+  if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return;
+  swHadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swInstallRequested) {
+      swInstallRequested = false;
+      location.reload();
+    } else {
+      refreshUpdateUI();
+    }
+  });
+  try {
+    swRegistration = await navigator.serviceWorker.register('./sw.js', {updateViaCache: 'none'});
+    if (swRegistration.waiting && navigator.serviceWorker.controller) showUpdateBanner();
+    swRegistration.addEventListener('updatefound', () => watchInstalling(swRegistration.installing));
+    watchInstalling(swRegistration.installing);
+    // Browser will also check periodically. Manual check remains available.
+  } catch (error) {
+    console.warn('Service Worker registration failed:', error);
+  }
+}
+async function checkForUpdates() {
+  const status = document.querySelector('#updateStatus');
+  if (!('serviceWorker' in navigator) || !swRegistration) {
+    refreshUpdateUI('Проверка недоступна. Подключись к интернету и открой приложение через HTTPS.');
+    return;
+  }
+  if (!navigator.onLine) {
+    refreshUpdateUI('Нет подключения к интернету. Проверь соединение и повтори.');
+    return;
+  }
+  swChecking = true;
+  refreshUpdateUI('Проверяем наличие новой версии…');
+  try {
+    if (swRegistration.waiting) {
+      showUpdateBanner();
+      refreshUpdateUI('Обновление уже загружено и готово к установке.');
+      return;
+    }
+    await swRegistration.update();
+    if (swRegistration.waiting) {
+      showUpdateBanner();
+      refreshUpdateUI('Доступна новая версия. Нажми «Установить новую версию».');
+    } else if (swRegistration.installing) {
+      refreshUpdateUI('Обновление загружается. После загрузки появится кнопка установки.');
+      watchInstalling(swRegistration.installing);
+    } else {
+      refreshUpdateUI('Проверено: новых обновлений нет.');
+    }
+  } catch (error) {
+    console.warn('Update check failed:', error);
+    refreshUpdateUI('Не получилось проверить обновления. Проверь интернет и повтори.');
+  } finally {
+    swChecking = false;
+    const check = document.querySelector('#checkForUpdate');
+    if (check) check.disabled = false;
+  }
+}
+function activateUpdate() {
+  if (!swRegistration?.waiting) return refreshUpdateUI('Обновление пока не загружено.');
+  if (!confirm('Установить обновление и перезапустить приложение? Сохрани открытый рецепт перед продолжением.')) return;
+  swInstallRequested = true;
+  refreshUpdateUI('Устанавливаем обновление…');
+  swRegistration.waiting.postMessage({type:'SKIP_WAITING'});
+}
